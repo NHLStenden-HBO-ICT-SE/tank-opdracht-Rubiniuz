@@ -14,7 +14,7 @@ constexpr auto health_bar_width = 70;
 constexpr auto max_frames = 2000;
 
 //Global performance timer
-constexpr auto REF_PERFORMANCE = 114757; //UPDATE THIS WITH YOUR REFERENCE PERFORMANCE (see console after 2k frames)
+constexpr auto REF_PERFORMANCE = 2300000; //2300000 for pc // ... for laptop //114757 for og //UPDATE THIS WITH YOUR REFERENCE PERFORMANCE (see console after 2k frames)
 static timer perf_timer;
 static float duration;
 
@@ -41,6 +41,7 @@ const static vec2 rocket_size(6, 6);
 const static float tank_radius = 3.f;
 const static float rocket_radius = 5.f;
 
+//optimized
 // -----------------------------------------------------------
 // Initialize the simulation state
 // This function does not count for the performance multiplier
@@ -87,6 +88,7 @@ void Game::shutdown()
 {
 }
 
+//unoptimized
 // -----------------------------------------------------------
 // Iterates through all tanks and returns the closest enemy tank for the given tank
 // -----------------------------------------------------------
@@ -111,12 +113,14 @@ Tank& Game::find_closest_enemy(Tank& current_tank)
     return tanks.at(closest_index);
 }
 
+//optimized
 //Checks if a point lies on the left of an arbitrary angled line
 bool Tmpl8::Game::left_of_line(vec2 line_start, vec2 line_end, vec2 point)
 {
     return ((line_end.x - line_start.x) * (point.y - line_start.y) - (line_end.y - line_start.y) * (point.x - line_start.x)) < 0;
 }
 
+//unoptimized
 // -----------------------------------------------------------
 // Update the game state:
 // Move all objects
@@ -126,6 +130,7 @@ bool Tmpl8::Game::left_of_line(vec2 line_start, vec2 line_end, vec2 point)
 // -----------------------------------------------------------
 void Game::update(float deltaTime)
 {
+    //optimized
     //Calculate the route to the destination for each tank using BFS
     //Initializing routes here so it gets counted for performance..
     if (frame_count == 0)
@@ -136,6 +141,7 @@ void Game::update(float deltaTime)
         }
     }
 
+    //unoptimized
     //Check tank collision and nudge tanks away from each other
     for (Tank& tank : tanks)
     {
@@ -159,6 +165,7 @@ void Game::update(float deltaTime)
         }
     }
 
+    //optimized
     //Update tanks
     for (Tank& tank : tanks)
     {
@@ -179,6 +186,7 @@ void Game::update(float deltaTime)
         }
     }
 
+    //unoptimized
     //Update smoke plumes
     for (Smoke& smoke : smokes)
     {
@@ -188,6 +196,7 @@ void Game::update(float deltaTime)
     //Calculate "forcefield" around active tanks
     forcefield_hull.clear();
 
+    //unoptimized?
     //Find first active tank (this loop is a bit disgusting, fix?)
     int first_active = 0;
     for (Tank& tank : tanks)
@@ -198,6 +207,8 @@ void Game::update(float deltaTime)
         }
         first_active++;
     }
+
+    //unoptimized? tank.active can go into the other if statement to reduce the number of scopes
     vec2 point_on_hull = tanks.at(first_active).position;
     //Find left most tank position
     for (Tank& tank : tanks)
@@ -211,6 +222,7 @@ void Game::update(float deltaTime)
         }
     }
 
+    //unoptimized
     //Calculate convex hull for 'rocket barrier'
     for (Tank& tank : tanks)
     {
@@ -237,7 +249,8 @@ void Game::update(float deltaTime)
             }
         }
     }
-
+    
+    //optimized?
     //Update rockets
     for (Rocket& rocket : rockets)
     {
@@ -261,7 +274,8 @@ void Game::update(float deltaTime)
         }
     }
 
-    //Disable rockets if they collide with the "forcefield"
+    //unoptimized?
+    //Disable rockets if they collide with the "forcefield" around active tanks
     //Hint: A point to convex hull intersection test might be better here? :) (Disable if outside)
     for (Rocket& rocket : rockets)
     {
@@ -269,6 +283,7 @@ void Game::update(float deltaTime)
         {
             for (size_t i = 0; i < forcefield_hull.size(); i++)
             {
+                //unpotimized?
                 if (circle_segment_intersect(forcefield_hull.at(i), forcefield_hull.at((i + 1) % forcefield_hull.size()), rocket.position, rocket.collision_radius))
                 {
                     explosions.push_back(Explosion(&explosion, rocket.position));
@@ -279,10 +294,11 @@ void Game::update(float deltaTime)
     }
 
 
-
+    //optimized
     //Remove exploded rockets with remove erase idiom
     rockets.erase(std::remove_if(rockets.begin(), rockets.end(), [](const Rocket& rocket) { return !rocket.active; }), rockets.end());
-
+    
+    //optimized
     //Update particle beams
     for (Particle_beam& particle_beam : particle_beams)
     {
@@ -301,15 +317,18 @@ void Game::update(float deltaTime)
         }
     }
 
+    //optimized
     //Update explosion sprites and remove when done with remove erase idiom
     for (Explosion& explosion : explosions)
     {
         explosion.tick();
     }
-
+    
+    //optimized
     explosions.erase(std::remove_if(explosions.begin(), explosions.end(), [](const Explosion& explosion) { return explosion.done(); }), explosions.end());
 }
 
+//optimized
 // -----------------------------------------------------------
 // Draw all sprites to the screen
 // (It is not recommended to multi-thread this function)
@@ -374,6 +393,7 @@ void Game::draw()
     }
 }
 
+//unoptimized?
 // -----------------------------------------------------------
 // Sort tanks by health value using insertion sort
 // -----------------------------------------------------------
@@ -406,6 +426,7 @@ void Tmpl8::Game::insertion_sort_tanks_health(const std::vector<Tank>& original,
     }
 }
 
+//optimized
 // -----------------------------------------------------------
 // Draw the health bars based on the given tanks health values
 // -----------------------------------------------------------
@@ -438,6 +459,7 @@ void Tmpl8::Game::draw_health_bars(const std::vector<const Tank*>& sorted_tanks,
     }
 }
 
+//optimized
 // -----------------------------------------------------------
 // When we reach max_frames print the duration and speedup multiplier
 // Updating REF_PERFORMANCE at the top of this file with the value
@@ -469,6 +491,7 @@ void Tmpl8::Game::measure_performance()
     }
 }
 
+//optimized
 // -----------------------------------------------------------
 // Main application tick function
 // -----------------------------------------------------------
