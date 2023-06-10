@@ -1,6 +1,8 @@
 #include "precomp.h"
 #include "terrain.h"
 
+#include <map>
+
 namespace fs = std::filesystem;
 namespace Tmpl8
 {
@@ -128,6 +130,73 @@ namespace Tmpl8
         }
     }
 
+    int GuessDistanceToEnd(TerrainTile* start, TerrainTile* end)
+    {
+        //simple estimation with pythagoras
+        const unsigned long long& sx = start->position_x;
+        const unsigned long long& ex = end->position_x;
+        const unsigned long long& sy = start->position_y;
+        const unsigned long long& ey = end->position_y;
+        
+        const unsigned long long x = sx - ex;
+        const unsigned long long y = sy - ey;
+        
+        return sqrt((x*x)+(y*y));
+    }
+
+    struct Route
+    {
+        vector<TerrainTile*> route;
+        int score;
+        Route(vector<TerrainTile*> _route, double _score)
+        {
+            route = _route;
+            score = _score;
+        }
+
+        bool operator < (const Route& r) const
+        {
+            return (score < r.score);
+        }
+
+        bool operator == (const Route& r) const
+        {
+            return (score == r.score);
+        }
+    };
+
+    struct less_score_than
+    {
+        inline bool operator() (const Route& route1, const Route& route2)
+        {
+            return (route1.score < route2.score);
+        }
+    };
+
+    int FindScoreIndex(const vector<Route*> sortedList, int newScore)
+    {
+        int size = sortedList.size();
+        if(size < 1) return 0;
+
+        // Lower and upper bounds
+        int start = 0;
+        int end = size - 1;
+        
+        // Traverse the search space
+        while (start <= end) {
+            int mid = (start + end) / 2;
+            // If element is found
+            if (sortedList[mid]->score == newScore)
+                return mid;
+            else if (sortedList[mid]->score < newScore)
+                start = mid + 1;
+            else
+                end = mid - 1;
+        }
+        // Return insert position
+        return end + 1;
+    }
+
     //Use Breadth-first search to find shortest route to the destination
     vector<vec2> Terrain::get_route(const Tank& tank, const vec2& target)
     {
@@ -139,20 +208,26 @@ namespace Tmpl8
         const size_t target_y = target.y / sprite_size;
 
         //Init queue with start tile
-        std::queue<vector<TerrainTile*>> queue;
-        queue.emplace();
-        queue.back().push_back(&tiles.at(pos_y).at(pos_x));
+        TerrainTile* start = &tiles.at(pos_y).at(pos_x);
+        TerrainTile* end = &tiles.at(target_y).at(target_x);
 
-        std::vector<TerrainTile*> visited;
+        // Dick Astar Test
+        vector<Route*> list = vector<Route*>();
+        Route* startR = new Route(vector<TerrainTile*>(), GuessDistanceToEnd(start, end) + 1.0f);
+        startR->route.push_back(start);
+        list.push_back(startR);
 
         bool route_found = false;
         vector<TerrainTile*> current_route;
-        while (!queue.empty() && !route_found)
+        vector<TerrainTile*> visited;
+        
+        //Dick aStar
+        while (!route_found && list.size() > 0)
         {
-            current_route = queue.front();
-            queue.pop();
+            Route* route = list.front();
+            current_route = route->route;
             TerrainTile* current_tile = current_route.back();
-
+            
             //Check all exits, if target then done, else if unvisited push a new partial route
             for (TerrainTile * exit : current_tile->exits)
             {
@@ -162,16 +237,27 @@ namespace Tmpl8
                     route_found = true;
                     break;
                 }
-                else if (!exit->visited)
+                
+                if (!exit->visited)
                 {
                     exit->visited = true;
                     visited.push_back(exit);
-                    queue.push(current_route);
-                    queue.back().push_back(exit);
+                    int new_score = GuessDistanceToEnd(exit,end) + current_route.size();
+                    Route* r = new Route(current_route, new_score);
+                    r->route.push_back(exit);
+
+                    int foundIndex = FindScoreIndex(list, new_score);
+                    list.insert(list.begin() + foundIndex, r);
                 }
             }
+            
+            if(!route_found)
+            {
+                auto it = std::find(list.begin(), list.end(), route);
+                list.erase(it);
+            }
         }
-
+        
         //Reset tiles
         for (TerrainTile * tile : visited)
         {
