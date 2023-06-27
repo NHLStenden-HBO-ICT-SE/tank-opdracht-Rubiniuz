@@ -88,7 +88,7 @@ void Game::shutdown()
 {
 }
 
-//unoptimized
+//unoptimized - use grid or box search
 // -----------------------------------------------------------
 // Iterates through all tanks and returns the closest enemy tank for the given tank
 // -----------------------------------------------------------
@@ -141,7 +141,7 @@ void Game::update(float deltaTime)
         }
     }
 
-    //unoptimized
+    //unoptimized - probably has a faster solution
     //Check tank collision and nudge tanks away from each other
     for (Tank& tank : tanks)
     {
@@ -185,8 +185,7 @@ void Game::update(float deltaTime)
             }
         }
     }
-
-    //unoptimized
+    
     //Update smoke plumes
     for (Smoke& smoke : smokes)
     {
@@ -196,7 +195,92 @@ void Game::update(float deltaTime)
     //Calculate "forcefield" around active tanks
     forcefield_hull.clear();
 
-    //unoptimized?
+    // same as Astar sort. keep all active tanks in new list. skip others.
+    // combine the other active loop for hulls with this one
+    // Should lower calls when tanks are no longer active because they're not needed.
+
+    vector<Tank> ActiveTanks;
+    vec2 point_found_on_hull = vec2();
+    Tank* FirstActive = nullptr;
+
+    if(!ActiveTanks.empty())
+    {
+        vector<Tank> Temp;
+        for (Tank& tank : ActiveTanks)
+        {
+            if (tank.active)
+            {
+                if(point_found_on_hull == vec2())
+                {
+                    point_found_on_hull = tank.position;
+                    FirstActive = &tank;
+                }
+                
+                if (tank.position.x <= point_found_on_hull.x)
+                {
+                    point_found_on_hull = tank.position;
+                }
+                Temp.push_back(tank);
+            }
+        }
+        ActiveTanks = Temp;
+        Temp.clear();
+    }
+    else
+    {
+        vector<Tank> Temp;
+        for (Tank& tank : tanks)
+        {
+            if (tank.active)
+            {
+                if(point_found_on_hull == vec2())
+                {
+                    point_found_on_hull = tank.position;
+                    FirstActive = &tank;
+                }
+                
+                if (tank.position.x <= point_found_on_hull.x)
+                {
+                    point_found_on_hull = tank.position;
+                }
+                Temp.push_back(tank);
+            }
+        }
+        ActiveTanks = Temp;
+        Temp.clear();
+    }
+
+    // Seems still extremely dirty
+    for (Tank& tank : ActiveTanks)
+    {
+
+        if(FirstActive == nullptr)
+        {
+            std::cout << "Problem Found no Active Tanks!" << std::endl;
+        }
+        
+        forcefield_hull.push_back(point_found_on_hull);
+        vec2 endpoint = FirstActive->position;
+
+        for (Tank& tank : ActiveTanks)
+        {
+            if (tank.active)
+            {
+                if ((endpoint == point_found_on_hull) || left_of_line(point_found_on_hull, endpoint, tank.position))
+                {
+                    endpoint = tank.position;
+                }
+            }
+        }
+        point_found_on_hull = endpoint;
+
+        if (endpoint == forcefield_hull.at(0))
+        {
+            break;
+        }
+    }
+    
+    /*//unoptimized?
     //Find first active tank (this loop is a bit disgusting, fix?)
     int first_active = 0;
     for (Tank& tank : tanks)
@@ -220,8 +304,9 @@ void Game::update(float deltaTime)
                 point_on_hull = tank.position;
             }
         }
-    }
+    }*/
 
+    /*
     //unoptimized
     //Calculate convex hull for 'rocket barrier'
     for (Tank& tank : tanks)
@@ -248,7 +333,7 @@ void Game::update(float deltaTime)
                 break;
             }
         }
-    }
+    }*/
     
     //optimized?
     //Update rockets
