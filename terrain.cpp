@@ -173,6 +173,7 @@ namespace Tmpl8
         }
     };
 
+    //New Algorithm 
     int FindScoreIndex(const vector<Route*> sortedList, int newScore)
     {
         int size = sortedList.size();
@@ -213,7 +214,7 @@ namespace Tmpl8
 
         // Dick Astar Test
         vector<Route*> list = vector<Route*>();
-        Route* startR = new Route(vector<TerrainTile*>(), GuessDistanceToEnd(start, end) + 1.0f);
+        Route* startR = new Route(vector<TerrainTile*>(), GuessDistanceToEnd(start, end) + 1);
         startR->route.push_back(start);
         list.push_back(startR);
 
