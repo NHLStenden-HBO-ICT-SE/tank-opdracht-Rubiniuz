@@ -133,13 +133,8 @@ namespace Tmpl8
     int GuessDistanceToEnd(TerrainTile* start, TerrainTile* end)
     {
         //simple estimation with pythagoras
-        const unsigned long long& sx = start->position_x;
-        const unsigned long long& ex = end->position_x;
-        const unsigned long long& sy = start->position_y;
-        const unsigned long long& ey = end->position_y;
-        
-        const unsigned long long x = sx - ex;
-        const unsigned long long y = sy - ey;
+        const unsigned long long x = start->position_x - end->position_x;
+        const unsigned long long y = start->position_y - end->position_y;
         
         return sqrt((x*x)+(y*y));
     }
