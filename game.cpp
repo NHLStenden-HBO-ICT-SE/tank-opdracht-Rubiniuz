@@ -111,10 +111,7 @@ void Game::init()
     particle_beams.push_back(Particle_beam(vec2(64, 64), vec2(100, 50), &particle_beam_sprite, particle_beam_hit_value));
     particle_beams.push_back(Particle_beam(vec2(1200, 600), vec2(100, 50), &particle_beam_sprite, particle_beam_hit_value));
 
-    ActiveTanks.reserve(num_tanks_blue + num_tanks_red);
-    ActiveTanks = tanks;
-
-    cout << "Initialization done. Got: " << ActiveTanks.size() << " Tanks. Spread over " << gridsCount << " grids." << endl;
+    cout << "Initialization done. Got: " << tanks.size() << " Tanks. Spread over " << gridsCount << " grids." << endl;
 }
 
 // -----------------------------------------------------------
@@ -203,46 +200,23 @@ bool Tmpl8::Game::left_of_line(vec2 line_start, vec2 line_end, vec2 point)
 // -----------------------------------------------------------
 void Game::update(float deltaTime)
 {
-    //Check Active Tanks
-    size_t gridWidth = background_terrain.GetWidth();
-    for(Grid& g : grids)
-    {
-        g.ClearTanks();
-    }
-    
-    vector<Tank> Temp = vector<Tank>();
-    for (Tank& t : ActiveTanks)
-    {
-        if(t.active)
-        {
-            Temp.push_back(t);
-            int gridIndex = Grid::GetGridIndex(t.position, gridSize, gridWidth);
-            if (gridIndex < 0 || gridIndex >= grids.size())
-            {
-                std::cout << "!ERROR! Tank out of bounds. This shouldn't happen UPDATE ACTIVE TANKS" << std::endl;
-                continue;
-            }
-            grids[gridIndex].AddTank(t);
-        }
-        else
-        {
-            DeadTanks.push_back(t);
-        }
-    }
-    ActiveTanks = Temp;
-    Temp = vector<Tank>();
-
-    std::cout << "Loop with: " << ActiveTanks.size() << " Tanks" << std::endl;
+    const size_t gridWidth = background_terrain.GetWidth();
     
     //optimized
     //Calculate the route to the destination for each tank using BFS
     //Initializing routes here so it gets counted for performance..
     if (frame_count == 0)
     {
-        for (Tank& t : ActiveTanks)
+        for(Grid& g : grids)
         {
-            t.set_route(background_terrain.get_route(t, t.target));
+            if(g.hasTanks == false)
+                continue;
+            for(Tank& t : g.GetTanks())
+            {
+                t.set_route(background_terrain.get_route(t, t.target));
+            }
         }
+        std::cout << "Done with Routes" << std::endl;
     }
     
     /// new check using grids offset tanks on collision
@@ -270,19 +244,37 @@ void Game::update(float deltaTime)
 
     //optimized
     //Update tanks
-    for (Tank& tank : ActiveTanks)
+    vector<Tank> tanks_without_grid = vector<Tank>();
+    for(Grid& g : grids)
     {
-        //Move tanks according to speed and nudges (see above) also reload
-        tank.tick(background_terrain);
-
-        //Shoot at closest target if reloaded
-        if (tank.rocket_reloaded())
+        if(g.hasTanks == false)
+            continue;
+        for(Tank& t : g.GetTanks())
         {
-            Tank& target = find_closest_enemy(tank);
-            rockets.push_back(Rocket(tank.position, (target.get_position() - tank.position).normalized() * 3, rocket_radius, tank.allignment, ((tank.allignment == RED) ? &rocket_red : &rocket_blue)));
+            t.tick(background_terrain);
 
-            tank.reload_rocket();
+            //Shoot at closest target if reloaded
+            if (t.rocket_reloaded())
+            {
+                Tank& target = find_closest_enemy(t);
+                rockets.push_back(Rocket(t.position, (target.get_position() - t.position).normalized() * 3, rocket_radius, t.allignment, ((t.allignment == RED) ? &rocket_red : &rocket_blue)));
+
+                t.reload_rocket();
+            }
         }
+        vector<Tank> outbounds = g.GetTanksOutBounds();
+        tanks_without_grid.insert(tanks_without_grid.end(), outbounds.begin(), outbounds.end());
+    }
+
+    for(Tank& t : tanks_without_grid)
+    {
+        int gridIndex = Grid::GetGridIndex(t.position, gridSize, gridWidth);
+        if (gridIndex < 0 || gridIndex >= grids.size())
+        {
+            std::cout << "!ERROR! Tank out of bounds. This shouldn't happen UPDATE ACTIVE TANKS" << std::endl;
+            continue;
+        }
+        grids[gridIndex].AddTank(t);
     }
     
     //Update smoke plumes
@@ -294,14 +286,20 @@ void Game::update(float deltaTime)
     //Calculate "forcefield" around active tanks
     forcefield_hull.clear();
 
-    /// next calculations are also altered
-    
-    // same as Astar sort. keep all active tanks in new list. skip others.
-    // combine the other active loop for hulls with this one
-    // Should lower calls when tanks are no longer active because they're not needed.
     vec2 point_found_on_hull = vec2();
     Tank* FirstActive = nullptr;
 
+    vector<Tank> ActiveTanks = vector<Tank>();
+
+    for(Grid& g : grids)
+    {
+        if(g.hasTanks == false)
+            continue;
+        
+        ActiveTanks.insert(ActiveTanks.end(), g.GetTanks().begin(), g.GetTanks().end());
+    }
+
+    //Generate convex hull around active tanks from the grid
     for (Tank& tank : ActiveTanks)
     {
         if(FirstActive == nullptr)
@@ -343,7 +341,13 @@ void Game::update(float deltaTime)
             break;
         }
     }
-    
+
+    //Update explosions
+    for (Explosion& explosion : explosions)
+    {
+        explosion.tick();
+    }
+
     //Update rockets /// ALTERED
     for (Rocket& rocket : rockets)
     {
@@ -352,13 +356,16 @@ void Game::update(float deltaTime)
         int gridIndex = Grid::GetGridIndex(rocket.position, gridSize, gridWidth);
         if (gridIndex < 0 || gridIndex >= grids.size())
         {
-            std::cout << "!ERROR! Tank out of bounds. This shouldn't happen CHECK ROCKETS" << std::endl;
+            std::cout << "!ERROR! Rocket out of bounds. This shouldn't happen CHECK ROCKETS" << std::endl;
             continue;
         }
 
         Grid& g = grids[gridIndex];
         for (Tank& tank : g.GetTanks())
         {
+            if(tank.active == false)
+                continue;
+            
             if ((tank.allignment != rocket.allignment) && rocket.intersects(tank.position, tank.collision_radius))
             {
                 explosions.push_back(Explosion(&explosion, tank.position));
@@ -398,16 +405,37 @@ void Game::update(float deltaTime)
     //Update particle beams //// Altered
     for (Particle_beam& particle_beam : particle_beams)
     {
-        particle_beam.tick(ActiveTanks);
+        particle_beam.tick(tanks);
 
-        //Damage all tanks within the damage window of the beam (the window is an axis-aligned bounding box)
-        for (Tank& tank : ActiveTanks)
+        //Get grids in range of the beam
+        vec2 TL = particle_beam.min_position;
+        vec2 BR = particle_beam.max_position;
+        vec2 TR = vec2(BR.x, TL.y);
+        vec2 BL = vec2(TL.x, BR.y);
+
+        vector<Grid> gridsInRange;
+        gridsInRange.push_back(grids[Grid::GetGridIndex(TL, gridSize, gridWidth)]);
+        gridsInRange.push_back(grids[Grid::GetGridIndex(BR, gridSize, gridWidth)]);
+        gridsInRange.push_back(grids[Grid::GetGridIndex(TR, gridSize, gridWidth)]);
+        gridsInRange.push_back(grids[Grid::GetGridIndex(BL, gridSize, gridWidth)]);
+
+        for(Grid& g : gridsInRange)
         {
-            if (particle_beam.rectangle.intersects_circle(tank.get_position(), tank.get_collision_radius()))
+            if(g.hasTanks == false)
+                continue;
+            
+            //Damage all tanks within the damage window of the beam (the window is an axis-aligned bounding box)
+            for(Tank& t : g.GetTanks())
             {
-                if (tank.hit(particle_beam.damage))
+                if(t.active == false)
+                    continue;
+                
+                if (particle_beam.rectangle.intersects_circle(t.get_position(), t.get_collision_radius()))
                 {
-                    smokes.push_back(Smoke(smoke, tank.position - vec2(0, 48)));
+                    if (t.hit(particle_beam.damage))
+                    {
+                        smokes.push_back(Smoke(smoke, t.position - vec2(0, 48)));
+                    }
                 }
             }
         }
@@ -422,7 +450,6 @@ void Game::update(float deltaTime)
     
     //optimized
     explosions.erase(std::remove_if(explosions.begin(), explosions.end(), [](const Explosion& explosion) { return explosion.done(); }), explosions.end());
-    std::cout << "update complete" << std::endl;
 }
 
 //optimized
@@ -437,15 +464,18 @@ void Game::draw()
 
     //Draw background
     background_terrain.draw(screen);
-
+    
+    tanks.clear();
     //Draw sprites /// Altered
-    for (auto t : DeadTanks)
+    for(Grid& g : grids)
     {
-        t.draw(screen);
-    }
-    for (auto t : ActiveTanks)
-    {
-        t.draw(screen);
+        if(!g.hasTanks)
+            continue;
+        for(Tank& t : g.GetTanks())
+        {
+            t.draw(screen);
+            tanks.push_back(t);
+        }
     }
     
     for (Rocket& rocket : rockets)
@@ -477,9 +507,6 @@ void Game::draw()
         line_end.x += HEALTHBAR_OFFSET;
         screen->line(line_start, line_end, 0x0000ff);
     }
-
-    tanks = ActiveTanks;
-    tanks.insert(tanks.end(), DeadTanks.begin(), DeadTanks.end());
 
     //Draw sorted health bars
     for (int t = 0; t < 2; t++)

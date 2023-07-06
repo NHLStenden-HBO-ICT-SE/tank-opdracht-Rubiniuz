@@ -8,6 +8,7 @@ public:
 
     int indentifier = 0;
     bool hasTanks = false;
+    bool hasActiveTanks = false;
     bool hasRedTanks = false;
     bool hasBlueTanks = false;
 

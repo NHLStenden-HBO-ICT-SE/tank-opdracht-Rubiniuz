@@ -21,6 +21,10 @@ bool Grid::IsInBounds(Tank& tank)
 
 vector<Tank> Grid::GetTanksOutBounds()
 {
+    hasRedTanks = false;
+    hasBlueTanks = false;
+    hasActiveTanks = false;
+    hasTanks = false;
     // check if tank position is in bounds
     vector<Tank> OutOfBoundsTanks;
     vector<Tank> InBoundsTanks;
@@ -33,6 +37,17 @@ vector<Tank> Grid::GetTanksOutBounds()
         else
         {
             InBoundsTanks.push_back(tank);
+            if(hasActiveTanks == false && tank.active)
+            {
+                hasActiveTanks = true;
+            }
+            if(tank.allignment == allignments::RED)
+            {
+                hasRedTanks = true;
+            } else
+            {
+                hasBlueTanks = true;
+            }
         }
     }
     
@@ -53,6 +68,10 @@ void Grid::AddTank(Tank& tank)
 {
     this->tanks.push_back(tank);
     hasTanks = true;
+    if(hasActiveTanks == false && tank.active)
+    {
+        hasActiveTanks = true;
+    }
     if(tank.allignment == allignments::RED)
     {
         hasRedTanks = true;
