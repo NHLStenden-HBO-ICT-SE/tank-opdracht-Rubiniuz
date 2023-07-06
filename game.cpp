@@ -299,46 +299,56 @@ void Game::update(float deltaTime)
         ActiveTanks.insert(ActiveTanks.end(), g.GetTanks().begin(), g.GetTanks().end());
     }
 
-    //Generate convex hull around active tanks from the grid
+    //Calculate "forcefield" around active tanks
+    forcefield_hull.clear();
+
+    //Find first active tank (this loop is a bit disgusting, fix?)
+    int first_active = 0;
     for (Tank& tank : ActiveTanks)
     {
-        if(FirstActive == nullptr)
+        if (tank.active)
         {
-            FirstActive = &tank;
+            break;
         }
-        
-        if (tank.position.x <= point_found_on_hull.x || point_found_on_hull == vec2())
+        first_active++;
+    }
+    vec2 point_on_hull = ActiveTanks.at(first_active).position;
+    //Find left most tank position
+    for (Tank& tank : ActiveTanks)
+    {
+        if (tank.active)
         {
-            point_found_on_hull = tank.position;
+            if (tank.position.x <= point_on_hull.x)
+            {
+                point_on_hull = tank.position;
+            }
         }
     }
 
-    // Seems still extremely dirty Unoptimized? Use out most grids that contains tanks to find the points
+    //Calculate convex hull for 'rocket barrier'
     for (Tank& tank : ActiveTanks)
     {
-        if(FirstActive == nullptr)
+        if (tank.active)
         {
-            std::cout << "Problem Found no Active Tanks!" << std::endl;
-        }
-        
-        forcefield_hull.push_back(point_found_on_hull);
-        vec2 endpoint = FirstActive->position;
+            forcefield_hull.push_back(point_on_hull);
+            vec2 endpoint = tanks.at(first_active).position;
 
-        for (Tank& tank : ActiveTanks)
-        {
-            if (tank.active)
+            for (Tank& tank : ActiveTanks)
             {
-                if ((endpoint == point_found_on_hull) || left_of_line(point_found_on_hull, endpoint, tank.position))
+                if (tank.active)
                 {
-                    endpoint = tank.position;
+                    if ((endpoint == point_on_hull) || left_of_line(point_on_hull, endpoint, tank.position))
+                    {
+                        endpoint = tank.position;
+                    }
                 }
             }
-        }
-        point_found_on_hull = endpoint;
+            point_on_hull = endpoint;
 
-        if (endpoint == forcefield_hull.at(0))
-        {
-            break;
+            if (endpoint == forcefield_hull.at(0))
+            {
+                break;
+            }
         }
     }
 
