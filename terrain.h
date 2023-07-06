@@ -40,6 +40,10 @@ namespace Tmpl8
 
         float get_speed_modifier(const vec2& position) const;
 
+        //Custom add
+        size_t GetWidth() const { return terrain_width; }
+        size_t GetHeight() const { return terrain_height; }
+
 
     private:
 

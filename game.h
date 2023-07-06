@@ -1,5 +1,7 @@
 #pragma once
 
+class Grid;
+
 namespace Tmpl8
 {
 //forward declarations
@@ -64,6 +66,10 @@ class Game
 
     //Checks if a point lies on the left of an arbitrary angled line
     bool left_of_line(vec2 line_start, vec2 line_end, vec2 point);
+
+    //Grid System
+    vector<Grid> grids;
+    int gridSize = 16;
 };
 
 }; // namespace Tmpl8
