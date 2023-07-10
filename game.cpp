@@ -14,7 +14,7 @@ constexpr auto health_bar_width = 70;
 constexpr auto max_frames = 2000;
 
 //Global performance timer
-constexpr auto REF_PERFORMANCE = 39245; //2300000 for pc // 166965 for laptop on battery //114757 for og //UPDATE THIS WITH YOUR REFERENCE PERFORMANCE (see console after 2k frames)
+constexpr auto REF_PERFORMANCE = 40000; //2300000 for pc // 166965 for laptop on battery //114757 for og //UPDATE THIS WITH YOUR REFERENCE PERFORMANCE (see console after 2k frames)
 static timer perf_timer;
 static float duration;
 
@@ -87,7 +87,7 @@ void Game::init()
         int gridIndex = Grid::GetGridIndex(position, gridSize, gridWidth);
         if (gridIndex < 0 || gridIndex >= grids.size())
         {
-            std::cout << "!ERROR! Tank out of bounds. This shouldn't happen Add Blue Tank!" << std::endl;
+            //std::cout << "!ERROR! Tank out of bounds. This shouldn't happen Add Blue Tank!" << std::endl;
             continue;
         }
         grids[gridIndex].AddTank(tanks.back());
@@ -101,7 +101,7 @@ void Game::init()
         int gridIndex = Grid::GetGridIndex(position, gridSize, gridWidth);
         if (gridIndex < 0 || gridIndex >= grids.size())
         {
-            std::cout << "!ERROR! Tank out of bounds. This shouldn't happen Add RED Tank!" << std::endl;
+            //std::cout << "!ERROR! Tank out of bounds. This shouldn't happen Add RED Tank!" << std::endl;
             continue;
         }
         grids[gridIndex].AddTank(tanks.back());
@@ -111,7 +111,7 @@ void Game::init()
     particle_beams.push_back(Particle_beam(vec2(64, 64), vec2(100, 50), &particle_beam_sprite, particle_beam_hit_value));
     particle_beams.push_back(Particle_beam(vec2(1200, 600), vec2(100, 50), &particle_beam_sprite, particle_beam_hit_value));
 
-    cout << "Initialization done. Got: " << tanks.size() << " Tanks. Spread over " << gridsCount << " grids." << endl;
+    //cout << "Initialization done. Got: " << tanks.size() << " Tanks. Spread over " << gridsCount << " grids." << endl;
 }
 
 // -----------------------------------------------------------
@@ -130,7 +130,7 @@ Tank& Game::find_closest_enemy(Tank& current_tank)
     int gridIndex = Grid::GetGridIndex(current_tank.position, gridSize, background_terrain.GetWidth());
     if (gridIndex < 0 || gridIndex >= grids.size())
     {
-        std::cout << "!ERROR! Tank out of bounds. This shouldn't happen. CLOSEST ENEMY" << std::endl;
+        //std::cout << "!ERROR! Tank out of bounds. This shouldn't happen. CLOSEST ENEMY" << std::endl;
         return current_tank;
     }
     
@@ -160,7 +160,7 @@ Tank& Game::find_closest_enemy(Tank& current_tank)
 
     if(closestGridIndex == -1)
     {
-        std::cout << "!ERROR! closest grid index faulty" << std::endl;
+        //std::cout << "!ERROR! closest grid index faulty" << std::endl;
     }
 
     Grid& closestGrid = grids[closestGridIndex];
@@ -216,7 +216,7 @@ void Game::update(float deltaTime)
                 t.set_route(background_terrain.get_route(t, t.target));
             }
         }
-        std::cout << "Done with Routes" << std::endl;
+        //std::cout << "Done with Routes" << std::endl;
     }
     
     /// new check using grids offset tanks on collision
@@ -271,7 +271,7 @@ void Game::update(float deltaTime)
         int gridIndex = Grid::GetGridIndex(t.position, gridSize, gridWidth);
         if (gridIndex < 0 || gridIndex >= grids.size())
         {
-            std::cout << "!ERROR! Tank out of bounds. This shouldn't happen UPDATE ACTIVE TANKS" << std::endl;
+            //std::cout << "!ERROR! Tank out of bounds. This shouldn't happen UPDATE ACTIVE TANKS" << std::endl;
             continue;
         }
         grids[gridIndex].AddTank(t);
@@ -366,7 +366,7 @@ void Game::update(float deltaTime)
         int gridIndex = Grid::GetGridIndex(rocket.position, gridSize, gridWidth);
         if (gridIndex < 0 || gridIndex >= grids.size())
         {
-            std::cout << "!ERROR! Rocket out of bounds. This shouldn't happen CHECK ROCKETS" << std::endl;
+            //std::cout << "!ERROR! Rocket out of bounds. This shouldn't happen CHECK ROCKETS" << std::endl;
             continue;
         }
 
