@@ -130,6 +130,7 @@ namespace Tmpl8
         }
     }
 
+    //ALTERED
     int GuessDistanceToEnd(TerrainTile* start, TerrainTile* end)
     {
         //simple estimation with pythagoras
@@ -168,7 +169,7 @@ namespace Tmpl8
         }
     };
 
-    //New Algorithm 
+    //New Algorithm FORGOT NAME
     int FindScoreIndex(const vector<Route*> sortedList, int newScore)
     {
         int size = sortedList.size();

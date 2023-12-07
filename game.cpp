@@ -121,7 +121,7 @@ void Game::shutdown()
 {
 }
 
-//unoptimized - use grid or box search
+//used grid or box search
 // -----------------------------------------------------------
 // Iterates through all tanks and returns the closest enemy tank for the given tank
 // -----------------------------------------------------------
@@ -183,14 +183,13 @@ Tank& Game::find_closest_enemy(Tank& current_tank)
     return closestGridTanks[closestTankIndex];
 }
 
-//optimized
 //Checks if a point lies on the left of an arbitrary angled line
 bool Tmpl8::Game::left_of_line(vec2 line_start, vec2 line_end, vec2 point)
 {
     return ((line_end.x - line_start.x) * (point.y - line_start.y) - (line_end.y - line_start.y) * (point.x - line_start.x)) < 0;
 }
 
-//unoptimized
+//Optimized
 // -----------------------------------------------------------
 // Update the game state:
 // Move all objects
@@ -219,6 +218,7 @@ void Game::update(float deltaTime)
         //std::cout << "Done with Routes" << std::endl;
     }
     
+    /// Optimized
     /// new check using grids offset tanks on collision
     for(Grid& g : grids)
     {

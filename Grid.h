@@ -17,7 +17,8 @@ public:
 
     vec2 GetTopLeft() { return this->TopLeft; }
     vec2 GetBottomRight() { return this->BottomRight; }
-    vec2 GetCenter() { return vec2((this->TopLeft.x + this->BottomRight.x) / 2, (this->TopLeft.y + this->BottomRight.y) / 2); }
+    vec2 GetCenter() { return vec2((this->TopLeft.x + this->BottomRight.x) / 2,
+        (this->TopLeft.y + this->BottomRight.y) / 2); }
 
     void AddTank(Tank& tank);
     vector<Tank>& GetTanks() { return this->tanks; }
