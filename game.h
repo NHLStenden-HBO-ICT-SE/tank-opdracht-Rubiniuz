@@ -68,6 +68,17 @@ class Game
     //Grid System
     vector<Grid> grids;
     int gridSize = 16;
+
+    //thread pool
+    int thread_count = 0;
+    std::mutex tanks_mutex;
+    std::mutex grids_mutex;
+
+
+    std::mutex rockets_mutex;
+    std::mutex smokes_mutex;
+    std::mutex explosions_mutex;
+    std::mutex particle_beams_mutex;
 };
 
 }; // namespace Tmpl8

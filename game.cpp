@@ -41,6 +41,8 @@ const static vec2 rocket_size(6, 6);
 const static float tank_radius = 3.f;
 const static float rocket_radius = 5.f;
 
+static ThreadPool* thread_pool = nullptr;
+
 //optimized
 // -----------------------------------------------------------
 // Initialize the simulation state
@@ -63,6 +65,12 @@ void Game::init()
 
     float spacing = 7.5f;
 
+    /// Threading
+    thread_count = std::thread::hardware_concurrency();
+    std::cout << "thread_count = " << thread_count << std::endl;
+    thread_pool = new ThreadPool(thread_count);
+    /// End Threading
+
     //////////////
     //Create Grid of tanks
     //////////////
@@ -78,33 +86,110 @@ void Game::init()
         grids[i] = Grid(position, position + vec2(gridSize, gridSize), i);
     }
 
-    //Spawn blue tanks
-    for (int i = 0; i < num_tanks_blue; i++)
+    // lock update until all async init tasks are completed
+    lock_update = true;
+    size_t gridIndexBound = grids.size();
+
+    auto spawnbluetanks =
+        [start_blue_x, max_rows, spacing, start_blue_y, gridIndexBound, this]
+    (int numToSpawn, int splitSize) -> std::tuple<vector<Tank>, vector<int>>
     {
-        vec2 position{ start_blue_x + ((i % max_rows) * spacing), start_blue_y + ((i / max_rows) * spacing) };
-        tanks.push_back(Tank(position.x, position.y, BLUE, &tank_blue, &smoke, 1100.f, position.y + 16, tank_radius, tank_max_health, tank_max_speed));
-        //Get gridcell for tank
-        int gridIndex = Grid::GetGridIndex(position, gridSize, gridWidth);
-        if (gridIndex < 0 || gridIndex >= grids.size())
+        vector<Tank> _tanks;
+        vector<int> _gridIndexes;
+
+        for (int i = 0; i < numToSpawn; i++)
         {
-            //std::cout << "!ERROR! Tank out of bounds. This shouldn't happen Add Blue Tank!" << std::endl;
-            continue;
+            vec2 position{ start_blue_x + (i + numToSpawn * splitSize % max_rows) * spacing,
+                start_blue_y + (i + numToSpawn * splitSize / max_rows) * spacing };
+
+            _tanks.push_back(Tank(position.x, position.y, BLUE, &tank_blue, &smoke,
+                1100.f, position.y + 16, tank_radius, tank_max_health, tank_max_speed));
+
+            //Get gridcell for tank
+            int gridIndex = Grid::GetGridIndex(position, gridSize, gridWidth);
+            if (gridIndex < 0 || gridIndex >= gridIndexBound)
+            {
+                //std::cout << "!ERROR! Tank out of bounds. This shouldn't happen Add Blue Tank!" << std::endl;
+                continue;
+            }
+            // store integer index of the grid that has to store num tank
+            _gridIndexes.push_back(gridIndex);
         }
-        grids[gridIndex].AddTank(tanks.back());
-    }
-    //Spawn red tanks
-    for (int i = 0; i < num_tanks_red; i++)
+        return make_tuple(_tanks, _gridIndexes);
+    };
+
+    auto spawnredtanks =
+        [start_red_x, max_rows, spacing, start_red_y, gridIndexBound, this]
+    (int numToSpawn, int splitSize) -> std::tuple<vector<Tank>, vector<int>>
     {
-        vec2 position{ start_red_x + ((i % max_rows) * spacing), start_red_y + ((i / max_rows) * spacing) };
-        tanks.push_back(Tank(position.x, position.y, RED, &tank_red, &smoke, 100.f, position.y + 16, tank_radius, tank_max_health, tank_max_speed));
-        //Get gridcell for tank
-        int gridIndex = Grid::GetGridIndex(position, gridSize, gridWidth);
-        if (gridIndex < 0 || gridIndex >= grids.size())
+        vector<Tank> _tanks;
+        vector<int> _gridIndexes;
+
+        for (int i = 0; i < num_tanks_red; i++)
         {
-            //std::cout << "!ERROR! Tank out of bounds. This shouldn't happen Add RED Tank!" << std::endl;
-            continue;
+            vec2 position{ start_red_x + (i + numToSpawn * splitSize % max_rows) * spacing,
+                start_red_y + (i + numToSpawn * splitSize / max_rows) * spacing };
+
+            _tanks.push_back(Tank(position.x, position.y, RED, &tank_red, &smoke,
+                100.f, position.y + 16, tank_radius, tank_max_health, tank_max_speed));
+
+            //Get gridcell for tank
+            int gridIndex = Grid::GetGridIndex(position, gridSize, gridWidth);
+            if (gridIndex < 0 || gridIndex >= gridIndexBound)
+            {
+                //std::cout << "!ERROR! Tank out of bounds. This shouldn't happen Add RED Tank!" << std::endl;
+                continue;
+            }
+            _gridIndexes.push_back(gridIndex);
         }
-        grids[gridIndex].AddTank(tanks.back());
+        return make_tuple(_tanks, _gridIndexes);
+    };
+
+    //Split the work across the threads for red and blue tanks equally
+    int splitSize = num_tanks_blue / thread_count;
+
+    thread_pool->returnenqueue([]() -> int { return 0; });
+
+
+
+
+    //combine result into one vector and add to grids
+
+
+
+    //Unlock update
+    lock_update = false;
+
+    //Old Code
+    {
+        /*//Spawn blue tanks seperately
+        for (int i = 0; i < num_tanks_blue; i++)
+        {
+            vec2 position{ start_blue_x + ((i % max_rows) * spacing), start_blue_y + ((i / max_rows) * spacing) };
+            tanks.push_back(Tank(position.x, position.y, BLUE, &tank_blue, &smoke, 1100.f, position.y + 16, tank_radius, tank_max_health, tank_max_speed));
+            //Get gridcell for tank
+            int gridIndex = Grid::GetGridIndex(position, gridSize, gridWidth);
+            if (gridIndex < 0 || gridIndex >= grids.size())
+            {
+                //std::cout << "!ERROR! Tank out of bounds. This shouldn't happen Add Blue Tank!" << std::endl;
+                continue;
+            }
+            grids[gridIndex].AddTank(tanks.back());
+        }
+        //Spawn red tanks seperately
+        for (int i = 0; i < num_tanks_red; i++)
+        {
+            vec2 position{ start_red_x + ((i % max_rows) * spacing), start_red_y + ((i / max_rows) * spacing) };
+            tanks.push_back(Tank(position.x, position.y, RED, &tank_red, &smoke, 100.f, position.y + 16, tank_radius, tank_max_health, tank_max_speed));
+            //Get gridcell for tank
+            int gridIndex = Grid::GetGridIndex(position, gridSize, gridWidth);
+            if (gridIndex < 0 || gridIndex >= grids.size())
+            {
+                //std::cout << "!ERROR! Tank out of bounds. This shouldn't happen Add RED Tank!" << std::endl;
+                continue;
+            }
+            grids[gridIndex].AddTank(tanks.back());
+        }*/
     }
 
     particle_beams.push_back(Particle_beam(vec2(590, 327), vec2(100, 50), &particle_beam_sprite, particle_beam_hit_value));
@@ -313,6 +398,7 @@ void Game::update(float deltaTime)
         first_active++;
     }
     vec2 point_on_hull = ActiveTanks.at(first_active).position;
+
     //Find left most tank position
     for (Tank& tank : ActiveTanks)
     {

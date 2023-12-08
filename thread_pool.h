@@ -15,6 +15,9 @@ class Worker
 
     inline void operator()();
 
+    template <typename T>
+    inline T operator()();
+
   private:
     ThreadPool& pool;
 };
@@ -59,11 +62,36 @@ class ThreadPool
         return wrapper->get_future();
     }
 
+    template <class T>
+    auto returnenqueue(T task) -> std::future<decltype(task())>
+    {
+        //Wrap the function in a packaged_task so we can return a future object
+        auto wrapper = std::make_shared<std::packaged_task<decltype(task())()>>(std::move(task));
+
+        //Scope to restrict critical section
+        {
+            //lock our queue and add the given task to it
+            std::unique_lock<std::mutex> lock(queue_mutex);
+
+            returnTasks.push_back([=] {
+                (*wrapper)();
+            });
+        }
+
+        //Wake up a thread to start this task
+        condition.notify_one();
+
+        return wrapper->get_future();
+    }
+
   private:
     friend class Worker; //Gives access to the private variables of this class
 
     std::vector<std::thread> workers;
     std::deque<std::function<void()>> tasks;
+
+    template <typename T>
+    std::deque<std::function<T()>> returnTasks;
 
     std::condition_variable condition; //Wakes up a thread when work is available
 
@@ -94,6 +122,34 @@ inline void Worker::operator()()
 
         task();
     }
+}
+
+template <typename T>
+inline T Worker::operator()()
+{
+    std::function<T()> task;
+    while (true)
+    {
+        //Scope to restrict critical section
+        //This is important because we don't want to hold the lock while executing the task,
+        //because that would make it so only one task can be run simultaneously (aka sequantial)
+        {
+            std::unique_lock<std::mutex> locker(pool.queue_mutex);
+
+            //Wait until some work is ready or we are stopping the threadpool
+            //Because of spurious wakeups we need to check if there is actually a task available or we are stopping
+            pool.condition.wait(locker, [=] { return pool.stop || !pool.returnTasks.empty(); });
+
+            if (pool.stop) break;
+
+            task = pool.returnTasks.front();
+            pool.returnTasks.pop_front();
+        }
+
+        return task();
+    }
+
+    return T();
 }
 
 } // namespace Tmpl8
