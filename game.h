@@ -73,7 +73,8 @@ class Game
     int thread_count = 0;
     std::mutex tanks_mutex;
     std::mutex grids_mutex;
-
+    std::mutex reds_mutex;
+    std::mutex blues_mutex;
 
     std::mutex rockets_mutex;
     std::mutex smokes_mutex;

@@ -90,17 +90,23 @@ void Game::init()
     lock_update = true;
     size_t gridIndexBound = grids.size();
 
+    int numToSpawn = num_tanks_blue / thread_count;
+
+    int blueCounter = 0;
+    int redCounter = 0;
+
     auto spawnbluetanks =
-        [start_blue_x, max_rows, spacing, start_blue_y, gridIndexBound, this]
-    (int numToSpawn, int splitSize) -> std::tuple<vector<Tank>, vector<int>>
+        [start_blue_x, max_rows, spacing, start_blue_y, gridIndexBound, numToSpawn, blueCounter, this]
+    () -> std::tuple<vector<Tank>, vector<int>>
     {
         vector<Tank> _tanks;
         vector<int> _gridIndexes;
 
+        std::unique_lock<std::mutex> locker(blues_mutex);
         for (int i = 0; i < numToSpawn; i++)
         {
-            vec2 position{ start_blue_x + (i + numToSpawn * splitSize % max_rows) * spacing,
-                start_blue_y + (i + numToSpawn * splitSize / max_rows) * spacing };
+            vec2 position{ start_blue_x + (i  * blueCounter % max_rows) * spacing,
+                start_blue_y + (i * blueCounter / max_rows) * spacing };
 
             _tanks.push_back(Tank(position.x, position.y, BLUE, &tank_blue, &smoke,
                 1100.f, position.y + 16, tank_radius, tank_max_health, tank_max_speed));
@@ -119,16 +125,17 @@ void Game::init()
     };
 
     auto spawnredtanks =
-        [start_red_x, max_rows, spacing, start_red_y, gridIndexBound, this]
-    (int numToSpawn, int splitSize) -> std::tuple<vector<Tank>, vector<int>>
+        [start_red_x, max_rows, spacing, start_red_y, gridIndexBound, numToSpawn, redCounter, this]
+    () -> std::tuple<vector<Tank>, vector<int>>
     {
         vector<Tank> _tanks;
         vector<int> _gridIndexes;
 
-        for (int i = 0; i < num_tanks_red; i++)
+        std::unique_lock<std::mutex> locker(reds_mutex);
+        for (int i = 0; i < numToSpawn; i++)
         {
-            vec2 position{ start_red_x + (i + numToSpawn * splitSize % max_rows) * spacing,
-                start_red_y + (i + numToSpawn * splitSize / max_rows) * spacing };
+            vec2 position{ start_red_x + (i * redCounter % max_rows) * spacing,
+                start_red_y + (i * redCounter / max_rows) * spacing };
 
             _tanks.push_back(Tank(position.x, position.y, RED, &tank_red, &smoke,
                 100.f, position.y + 16, tank_radius, tank_max_health, tank_max_speed));
@@ -146,16 +153,30 @@ void Game::init()
     };
 
     //Split the work across the threads for red and blue tanks equally
-    int splitSize = num_tanks_blue / thread_count;
+    vector<std::future<std::tuple<vector<Tank>, vector<int>>>> results;
+    for (auto i = 0; i < thread_count; i++)
+    {
+        //blue tanks
+        auto resultBlue = thread_pool->returnenqueue(spawnbluetanks);
+        results.push_back(std::move(resultBlue));
+        //red tanks
+        auto resultRed = thread_pool->returnenqueue(spawnredtanks);
+        results.push_back(std::move(resultRed));
+    }
 
-    thread_pool->returnenqueue([]() -> int { return 0; });
-
-
-
-
+    //Wait for all threads to finish TODO CHANGE INTO THREADED FUNCTION?!
     //combine result into one vector and add to grids
-
-
+    for(auto r : results)
+    {
+        auto val = r._Get_value();
+        auto _tanks = get<0>(val);
+        auto _gridIndexes = get<1>(val);
+        tanks.insert(end(tanks), begin(_tanks), end(_tanks));
+        for(auto i = 0; i < _tanks.size(); i++)
+        {
+            grids[_gridIndexes[i]].AddTank(_tanks[i]);
+        }
+    }
 
     //Unlock update
     lock_update = false;
